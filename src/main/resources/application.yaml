@@ -1,0 +1,33 @@
+spring:
+  main:
+    web-application-type: servlet
+
+  application:
+    name: event-api
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/titri_db
+    driver-class-name: org.postgresql.Driver
+    username: postgres
+    password: root
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+#springdoc.api-docs.enabled=false'
+#  security:
+#    user:
+#      name: admin
+#      password: admin123
+#      roles: USER
+#logging:
+#  level:
+#    org.springframework.jdbc.core: WARN
+#    org.hibernate.SQL: DEBUG
+#    org.hibernate.orm.jdbc.bind: TRACE
+app:
+  security:
+    roles-header-fallback: X-Role
+    user-header-fallback: X-User
+

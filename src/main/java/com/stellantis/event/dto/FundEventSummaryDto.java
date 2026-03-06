@@ -1,6 +1,7 @@
 package com.stellantis.event.dto;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 import lombok.AllArgsConstructor;
@@ -24,5 +25,5 @@ public class FundEventSummaryDto {
 	private Integer reportCount;
 	private Integer outputFileCount;
 	private String createdBy;
-	private String[] actions;
+	private List<String> actions;
 }

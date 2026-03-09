@@ -24,19 +24,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(
-        name = "t_fund_event",
-        schema = "public",
-        indexes = {
-                @Index(name = "idx_fund_event_active_today", columnList = "id_fund,status,created_at"),
-                @Index(name = "idx_fund_event_date", columnList = "event_date"),
-                @Index(name = "idx_fund_event_fund", columnList = "id_fund"),
-                @Index(name = "idx_fund_event_fund_status", columnList = "id_fund,status"),
-                @Index(name = "idx_fund_event_status", columnList = "status"),
-                @Index(name = "idx_fund_event_type", columnList = "event_type"),
-                @Index(name = "uk_event_display_id", columnList = "event_display_id", unique = true)
-        }
-)
+@Table(name = "t_fund_event")
 @Getter
 @Setter
 @NoArgsConstructor

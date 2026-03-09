@@ -49,5 +49,24 @@ public interface FundEventRepository extends JpaRepository<FundEventEntity, UUID
 	Page<Object[]> searchEvents(@Param("fundCode") String fundCode, @Param("eventType") String eventType,
 			@Param("status") String status, @Param("fromDate") LocalDateTime fromDate,
 			@Param("toDate") LocalDateTime toDate, Pageable pageable);
+	
+
+    @Query("""
+        SELECT COUNT(DISTINCT fe.id)
+        FROM FundEventEntity fe
+        WHERE fe.fundEntity.fundCode = :fundCode
+          AND (:eventType IS NULL OR fe.eventType = :eventType)
+          AND (:status IS NULL OR fe.status = :status)
+          AND (:dateFrom IS NULL OR fe.processingStart >= :dateFrom)
+          AND (:dateTo IS NULL OR fe.processingStart <= :dateTo)
+    """)
+    long countByFilters(
+            @Param("fundCode") String fundCode,
+            @Param("eventType") String eventType,
+            @Param("status") String status,
+            @Param("dateFrom") LocalDateTime dateFrom,
+            @Param("dateTo") LocalDateTime dateTo
+    );
+
 
 }

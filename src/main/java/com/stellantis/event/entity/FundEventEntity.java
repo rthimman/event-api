@@ -13,7 +13,6 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.ForeignKey;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
-import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -41,7 +40,7 @@ public class FundEventEntity {
     @JoinColumn(name = "id_fund", foreignKey = @ForeignKey(name = "t_fund_event_id_fund_fkey"))
     private FundEntity fundEntity;
 
-    //@Enumerated(EnumType.STRING)
+    @Enumerated(EnumType.STRING)
     @Column(name = "event_type", length = 20, nullable = false)
     private EventType eventType;
 

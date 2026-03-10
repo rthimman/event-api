@@ -2,17 +2,21 @@ package com.stellantis.event.controller;
 
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.stellantis.event.dto.FundEventDetailDto;
 import com.stellantis.event.dto.PageResponse;
+import com.stellantis.event.service.FundEventQueryService;
 import com.stellantis.event.service.FundEventService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,6 +33,8 @@ import lombok.extern.slf4j.Slf4j;
 public class FundEventController {
 
     private final FundEventService fundEventService;
+    private final FundEventQueryService fundEventQueryService;
+
 
     @Operation(
             summary = "List fund events",
@@ -80,5 +86,14 @@ public class FundEventController {
                 pageable
         );
     }
+    
+	@GetMapping("/funds/{fundCode}/events/{eventId}")
+	public ResponseEntity<FundEventDetailDto> getEventDetails(
+	        @PathVariable String fundCode,
+	        @PathVariable String eventId) {
+	    FundEventDetailDto dto = fundEventQueryService
+	            .getEventDetails(fundCode, UUID.fromString(eventId));
+	    return ResponseEntity.ok(dto);
+	}
 
 }

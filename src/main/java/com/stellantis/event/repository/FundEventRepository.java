@@ -1,6 +1,7 @@
 package com.stellantis.event.repository;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -28,6 +29,21 @@ public interface FundEventRepository extends JpaRepository<FundEventEntity, UUID
             @Param("dateFrom") LocalDateTime dateFrom,
             @Param("dateTo") LocalDateTime dateTo
     );
+
+
+        @Query(
+            value = """
+                SELECT fe.*
+                FROM t_fund_event fe
+                JOIN t_fund f ON f.id_fund = fe.id_fund
+                WHERE fe.id_event = :eventId
+                  AND f.fund_code = :fundCode
+                """,
+            nativeQuery = true
+        )
+        Optional<FundEventEntity> findByIdAndFundCode(
+                @Param("eventId") UUID eventId,
+                @Param("fundCode") String fundCode);
 
 
 }

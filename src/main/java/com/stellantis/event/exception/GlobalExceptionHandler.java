@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+import com.stellantis.event.dto.ErrorResponse;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
@@ -48,7 +50,7 @@ public class GlobalExceptionHandler {
 
         return badRequest(ErrorCode.INVALID_STATUS, message, req);
     }
-
+    
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ApiError> handleConstraintViolation(ConstraintViolationException ex,
                                                               HttpServletRequest req) {
@@ -142,5 +144,45 @@ public class GlobalExceptionHandler {
                 OffsetDateTime.now()
         );
     }
+
+    @ExceptionHandler(FundNotFoundException.class)
+       public ResponseEntity<ErrorResponse> handleFundNotFound(FundNotFoundException ex) {
+           return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                   ErrorResponse.builder()
+                           .errorCode("FUND_NOT_FOUND")
+                           .message(ex.getMessage())
+                           .build()
+           );
+       }
+
+    @ExceptionHandler(EventNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleEventNotFound(EventNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                ErrorResponse.builder()
+                        .errorCode("EVENT_NOT_FOUND")
+                        .message(ex.getMessage())
+                        .build()
+        );
+    }
+
+    @ExceptionHandler(SecurityException.class)
+    public ResponseEntity<ErrorResponse> handleUnauthorized(SecurityException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                ErrorResponse.builder()
+                        .errorCode("UNAUTHORIZED")
+                        .message("Authentication required")
+                        .build()
+        );
+    }
+
+    @ExceptionHandler(IllegalAccessException.class)
+       public ResponseEntity<ErrorResponse> handleForbidden(IllegalAccessException ex) {
+           return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                   ErrorResponse.builder()
+                           .errorCode("FORBIDDEN")
+                           .message("Access denied")
+                           .build()
+           );
+       }
 
 }

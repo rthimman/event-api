@@ -164,6 +164,16 @@ public class GlobalExceptionHandler {
                         .build()
         );
     }
+    
+    @ExceptionHandler(FileNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleFileNotFound(FileNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                ErrorResponse.builder()
+                        .errorCode("FILE_NOT_FOUND")
+                        .message(ex.getMessage())
+                        .build()
+        );
+    }
 
     @ExceptionHandler(SecurityException.class)
     public ResponseEntity<ErrorResponse> handleUnauthorized(SecurityException ex) {
@@ -184,5 +194,14 @@ public class GlobalExceptionHandler {
                            .build()
            );
        }
+    
+//    @ExceptionHandler(AccessDeniedException.class)
+//    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
+//        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ErrorResponse.builder()
+//                .errorCode("FORBIDDEN")
+//                .message(ex.getMessage())
+//                .build()
+//                );
+//    }
 
 }

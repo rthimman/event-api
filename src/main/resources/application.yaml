@@ -15,6 +15,9 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+storage:
+  s3:
+    enabled: false
 #springdoc.api-docs.enabled=false'
 #  security:
 #    user:

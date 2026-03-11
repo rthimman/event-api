@@ -16,9 +16,6 @@ public class FileEntryDto {
 	private UUID fileId;
 	private String fileName;
 	private String fileType;
-	//private String reportType;
 	private Long sizeBytes;
-	//private String mimeType;
 	private Boolean isTiersRestricted;
-	//private String createdAt;
 }

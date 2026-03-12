@@ -27,4 +27,7 @@ public class FundEventSummaryDto {
 	private Integer outputFileCount;
 	private String createdBy;
 	private List<String> actions;
+	private List<FileEntryDto> reports;
+ 	private List<FileEntryDto> outputFiles;
+
 }

@@ -54,10 +54,12 @@ public class FundEventController {
                     @ApiResponse(responseCode = "400", description = "Invalid filters or pagination input")
             }
     )
-    @GetMapping("/funds/{fundCode}/events")
+    @GetMapping("/funds/{fundCode}/{countryCode}/events")
     public PageResponse getEvents(
             @Parameter(description = "Fund business code", required = true)
             @PathVariable String fundCode,
+            @Parameter(description = "Country code", required = true)
+            @PathVariable String countryCode,
 
             @Parameter(description = "Filter by event type", schema = @Schema(allowableValues =
                     {"REPLENISHMENT", "MONTHLY_DAILY_BM", "MONTHLY_MONTHLY_BM", "DAILY"}))
@@ -86,6 +88,7 @@ public class FundEventController {
 
 
         return fundEventService.getEvents(
+        		countryCode,
                 fundCode,
                 eventType,
                 status,

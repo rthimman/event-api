@@ -9,7 +9,7 @@ import com.stellantis.event.dto.FundEventSummaryDto;
 
 public interface FundEventRepositoryCustom {
 
-	Page<FundEventSummaryDto> searchEvents(String fundCode, String eventType, String status, LocalDateTime fromDate,
+	Page<FundEventSummaryDto> searchEvents(String countryCode,String fundCode, String eventType, String status, LocalDateTime fromDate,
 			LocalDateTime toDate, Pageable pageable);
 
 }

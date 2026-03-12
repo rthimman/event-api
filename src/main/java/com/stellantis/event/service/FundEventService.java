@@ -49,6 +49,7 @@ public class FundEventService {
      */
     @Transactional
     public PageResponse getEvents(
+    		String countryCode,
             String fundCode,
             String eventType,
             String status,
@@ -89,11 +90,11 @@ public class FundEventService {
         LocalDateTime fromDate = startDateFrom != null ? startDateFrom.atStartOfDay() : null;
         LocalDateTime toDate = startDateTo != null ? startDateTo.atTime(23, 59, 59) : null;
 
-        log.info("Searching events for fundCode='{}', eventType='{}', status='{}', from='{}', to='{}', page={}, size={}",
-                fundCode, eventType, status, fromDate, toDate, pageable.getPageNumber(), pageable.getPageSize());
+        log.info("Searching events for countryCode='{}' fundCode='{}', eventType='{}', status='{}', from='{}', to='{}', page={}, size={}",
+        		countryCode,fundCode, eventType, status, fromDate, toDate, pageable.getPageNumber(), pageable.getPageSize());
 
         Page<FundEventSummaryDto> page = fundEventRepository.searchEvents(
-                fundCode, eventType, status, fromDate, toDate, pageable
+        		countryCode,fundCode, eventType, status, fromDate, toDate, pageable
         );
 
         return toPageResponse(page);

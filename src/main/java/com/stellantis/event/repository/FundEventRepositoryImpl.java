@@ -6,6 +6,7 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -16,6 +17,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 
+import com.stellantis.event.dto.FileEntryDto;
 import com.stellantis.event.dto.FundEventSummaryDto;
 import com.stellantis.event.util.ActionResolver;
 
@@ -26,187 +28,242 @@ import jakarta.persistence.Query;
 @Repository
 public class FundEventRepositoryImpl implements FundEventRepositoryCustom {
 
+	@PersistenceContext
+	private EntityManager em;
 
-    @PersistenceContext
-    private EntityManager em;
 
-    private static final Map<String, String> SORT_COLUMN_MAP = Map.of(
-            "processingStart", "fe.PROCESSING_START",
-            "startDate",       "fe.PROCESSING_START", // alias supported for convenience
-            "eventType",       "fe.EVENT_TYPE",
-            "status",          "fe.STATUS",
-            "fundCode",        "f.FUND_CODE"
-    );
+	private static final Map<String, String> SORT_COLUMN_MAP = Map.ofEntries(
+	    // Event fields
+	   // Map.entry("eventDate",        "e.EVENT_DATE"),
+	    Map.entry("processingStart",  "e.PROCESSING_START"),
+	    Map.entry("startDate",        "e.PROCESSING_START"),
+	   // Map.entry("endDate",          "e.PROCESSING_END"),
+	    Map.entry("eventType",        "e.EVENT_TYPE"),
+	    Map.entry("status",           "e.STATUS"),
+	    Map.entry("fundCode",         "f.FUND_CODE")
+	  
+//	    Map.entry("fundName",         "f.DESCRIPTION"),
+//	    Map.entry("fileType",         "fl.FILE_TYPE"),
+//	    Map.entry("category",         "fl.CATEGORY"),
+//	    Map.entry("reportType",       "fl.REPORT_TYPE"),
+//	    Map.entry("sizeBytes",        "fl.SIZE_BYTES")
+	);
 
-    @Override
-    public Page<FundEventSummaryDto> searchEvents(
-            String fundCode,
-            String eventType,
-            String status,
-            LocalDateTime fromDate,
-            LocalDateTime toDate,
-            Pageable pageable
-    ) {
-        StringBuilder sql = new StringBuilder();
-        StringBuilder count = new StringBuilder();
+	@Override
+	public Page<FundEventSummaryDto> searchEvents(
+	        String countryCode,
+	        String fundCode,
+	        String eventType,
+	        String status,
+	        LocalDateTime startDateFrom,
+	        LocalDateTime startDateTo,
+	        Pageable pageable) {
 
-        sql.append("""
-            SELECT 
-              fe.ID_EVENT,
-              f.FUND_CODE,
-              fe.EVENT_TYPE,
-              fe.EVENT_DISPLAY_ID,
-              fe.STATUS,
-              fe.PROCESSING_START,
-              fe.PROCESSING_END,
-              fe.OPB_PERFORMING,
-              fe.IS_INITIAL_TRANSFER,
-              fe.CREATED_BY,
-              COUNT(CASE WHEN efl.CATEGORY = 'REPORT'      THEN 1 END) AS REPORT_COUNT,
-              COUNT(CASE WHEN efl.CATEGORY = 'OUTPUT_FILE' THEN 1 END) AS OUTPUT_FILE_COUNT
-            FROM T_FUND_EVENT fe
-            JOIN T_FUND f
-              ON f.ID_FUND = fe.ID_FUND
-            LEFT JOIN T_EVENT_FILE_LOG efl
-              ON efl.ID_EVENT = fe.ID_EVENT
-            WHERE 1=1
-        """);
+	    StringBuilder sql = new StringBuilder("""
+	        SELECT
+	            f.ID_FUND,
+	            f.FUND_CODE,
+	            f.DESCRIPTION AS FUND_NAME,
+	            e.ID_EVENT,
+	            e.EVENT_DISPLAY_ID,
+	            e.EVENT_TYPE,
+	            e.EVENT_DATE,
+	            e.STATUS,
+	            e.PROCESSING_START,
+	            e.PROCESSING_END,
+	            e.OPB_PERFORMING,
+	            fl.ID_FILE,
+	            fl.FILE_NAME,
+	            fl.FILE_TYPE,
+	            fl.CATEGORY,
+	            fl.REPORT_TYPE,
+	            fl.SIZE_BYTES,
+	            fl.IS_TIERS_RESTRICTED,
+	            fl.CREATED_AT AS FILE_CREATED_AT
+	        FROM T_FUND f
+	        INNER JOIN T_FUND_EVENT e ON e.ID_FUND = f.ID_FUND
+	        LEFT JOIN T_EVENT_FILE_LOG fl ON fl.ID_EVENT = e.ID_EVENT
+	        WHERE f.COUNTRY_CODE = :countryCode
+	          AND f.FUND_CODE = :fundCode
+	    """);
 
-        count.append("""
-            SELECT COUNT(*) 
-            FROM T_FUND_EVENT fe
-            JOIN T_FUND f
-              ON f.ID_FUND = fe.ID_FUND
-            WHERE 1=1
-        """);
+	    StringBuilder countSql = new StringBuilder("""
+	        SELECT COUNT(DISTINCT e.ID_EVENT)
+	        FROM T_FUND f
+	        INNER JOIN T_FUND_EVENT e ON e.ID_FUND = f.ID_FUND
+	        WHERE f.COUNTRY_CODE = :countryCode
+	          AND f.FUND_CODE = :fundCode
+	    """);
 
-        Map<String, Object> params = new HashMap<>();
+	    // ---------------- Filters ----------------
+	    Map<String, Object> params = new HashMap<>();
+	    params.put("countryCode", countryCode);
+	    params.put("fundCode", fundCode);
 
-        // Required fund code
-        sql.append(" AND f.FUND_CODE = :fundCode");
-        count.append(" AND f.FUND_CODE = :fundCode");
-        params.put("fundCode", fundCode);
+	    if (StringUtils.hasText(eventType)) {
+	        sql.append(" AND e.EVENT_TYPE = :eventType");
+	        countSql.append(" AND e.EVENT_TYPE = :eventType");
+	        params.put("eventType", eventType);
+	    }
 
-        // Optional filters (add only when non-null / non-empty)
-        if (StringUtils.hasText(eventType)) {
-            sql.append(" AND fe.EVENT_TYPE = :eventType");
-            count.append(" AND fe.EVENT_TYPE = :eventType");
-            params.put("eventType", eventType);
-        }
-        if (StringUtils.hasText(status)) {
-            sql.append(" AND fe.STATUS = :status");
-            count.append(" AND fe.STATUS = :status");
-            params.put("status", status);
-        }
-        if (fromDate != null) {
-            sql.append(" AND fe.PROCESSING_START >= :fromDate");
-            count.append(" AND fe.PROCESSING_START >= :fromDate");
-            params.put("fromDate", fromDate);
-        }
-        if (toDate != null) {
-            sql.append(" AND fe.PROCESSING_START <= :toDate");
-            count.append(" AND fe.PROCESSING_START <= :toDate");
-            params.put("toDate", toDate);
-        }
+	    if (StringUtils.hasText(status)) {
+	        sql.append(" AND e.STATUS = :status");
+	        countSql.append(" AND e.STATUS = :status");
+	        params.put("status", status);
+	    }
 
-        // Grouping for aggregates
-        sql.append("""
-            GROUP BY 
-              fe.ID_EVENT, f.FUND_CODE, fe.EVENT_TYPE, fe.EVENT_DISPLAY_ID, fe.STATUS,
-              fe.PROCESSING_START, fe.PROCESSING_END, fe.OPB_PERFORMING, fe.IS_INITIAL_TRANSFER, fe.CREATED_BY
-        """);
+	    if (startDateFrom != null) {
+	        sql.append(" AND e.EVENT_DATE >= :startDateFrom");
+	        countSql.append(" AND e.EVENT_DATE >= :startDateFrom");
+	        params.put("startDateFrom", startDateFrom);
+	    }
 
-        // ORDER BY from Pageable (whitelisted)
-        String orderBy = buildOrderBy(pageable);
-        if (orderBy.isEmpty()) {
-            orderBy = " ORDER BY fe.PROCESSING_START DESC"; // default
-        }
-        sql.append(orderBy);
+	    if (startDateTo != null) {
+	        sql.append(" AND e.EVENT_DATE <= :startDateTo");
+	        countSql.append(" AND e.EVENT_DATE <= :startDateTo");
+	        params.put("startDateTo", startDateTo);
+	    }
 
-        // Build queries
-        Query dataQ = em.createNativeQuery(sql.toString());
-        Query countQ = em.createNativeQuery(count.toString());
+	    // ---------------- Sorting ----------------
+	    String orderBy = buildOrderBy(pageable);
+	    if (orderBy.isEmpty()) {
+	        orderBy = """
+	            ORDER BY e.EVENT_DATE DESC,
+	                     e.PROCESSING_START DESC,
+	                     fl.CATEGORY,
+	                     fl.FILE_TYPE
+	        """;
+	    }
+	    sql.append(orderBy);
 
-        // Bind parameters
-        params.forEach((k, v) -> {
-            dataQ.setParameter(k, v);
-            countQ.setParameter(k, v);
-        });
+	    // ---------------- Execute Queries ----------------
+	    Query dataQ = em.createNativeQuery(sql.toString());
+	    Query countQ = em.createNativeQuery(countSql.toString());
 
-        // Pagination
-        dataQ.setFirstResult((int) pageable.getOffset());
-        dataQ.setMaxResults(pageable.getPageSize());
+	    params.forEach((k, v) -> {
+	        dataQ.setParameter(k, v);
+	        countQ.setParameter(k, v);
+	    });
 
-        @SuppressWarnings("unchecked")
-        List<Object[]> rows = dataQ.getResultList();
-        List<FundEventSummaryDto> content = mapRows(rows);
+	    dataQ.setFirstResult((int) pageable.getOffset());
+	    dataQ.setMaxResults(pageable.getPageSize());
 
-        Number total = ((Number) countQ.getSingleResult());
-        long totalElements = total.longValue();
+	    List<Object[]> rows = dataQ.getResultList();
+	    List<FundEventSummaryDto> content = mapRows(rows);
 
-        return new PageImpl<>(content, pageable, totalElements);
-    }
+	    Long totalElements = ((Number) countQ.getSingleResult()).longValue();
+	    return new PageImpl<>(content, pageable, totalElements);
+	}
 
-    private String buildOrderBy(Pageable pageable) {
-        if (pageable == null || pageable.getSort().isUnsorted()) {
-            return "";
-        }
-        StringBuilder ob = new StringBuilder(" ORDER BY ");
-        List<String> parts = new ArrayList<>();
-        pageable.getSort().forEach(order -> {
-            String prop = order.getProperty();
-            String col = SORT_COLUMN_MAP.get(prop);
-            if (col != null) {
-                parts.add(col + " " + (order.isAscending() ? "ASC" : "DESC"));
-            }
-        });
-        if (parts.isEmpty()) {
-            return "";
-        }
-        ob.append(String.join(", ", parts));
-        return ob.toString();
-    }
 
-    private List<FundEventSummaryDto> mapRows(List<Object[]> rows) {
-        List<FundEventSummaryDto> list = new ArrayList<>(rows.size());
-        for (Object[] r : rows) {
-            UUID eventId              = ((UUID) r[0]);
-            String fundCode           = (String) r[1];
-            String eventType          = (String) r[2];
-            String eventDisplayId     = (String) r[3];
-            String status             = (String) r[4];
-            LocalDateTime start       = r[5] == null ? null : ((Timestamp) r[5]).toLocalDateTime();
-            LocalDateTime end         = r[6] == null ? null : ((Timestamp) r[6]).toLocalDateTime();
-            BigDecimal opbPerforming     = r[7] == null ? null : toBigDecimal(r[7]);
-            Boolean initialTransfer   = r[8] == null ? null : toBoolean(r[8]);
-            String createdBy          = (String) r[9];
-            int reportCount          = toInt(r[10]);
-            int outputFileCount      = toInt(r[11]);
-            
+	private String buildOrderBy(Pageable pageable) {
+	    if (pageable == null || pageable.getSort() == null || pageable.getSort().isUnsorted()) {
+	        return "";
+	    }
 
-            List<String> actions = ActionResolver.resolve(status, start.toLocalDate());
+	    List<String> orderParts = new ArrayList<>();
 
-            
-			list.add(new FundEventSummaryDto(eventId, fundCode, eventType, eventDisplayId, status, start, end,
-					opbPerforming, initialTransfer, reportCount, outputFileCount, createdBy, actions));
-        }
-        return list;
-        }
+	    pageable.getSort().forEach(order -> {
+	        String property = order.getProperty();     // e.g., "startDate"
+	        String column = SORT_COLUMN_MAP.get(property);
 
-    private boolean toBoolean(Object o) {
-        if (o instanceof Boolean b) return b;
-        if (o instanceof Number n) return n.intValue() != 0;
-        if (o instanceof String s) return "Y".equalsIgnoreCase(s) || "true".equalsIgnoreCase(s);
-        return false;
-    }
+	        // Allow only whitelisted fields
+	        if (column != null) {
+	            String direction = order.isAscending() ? "ASC" : "DESC";
 
-    private int toInt(Object o) {
-        if (o == null) return 0;
-        if (o instanceof BigInteger bi) return bi.intValue();
-        if (o instanceof Number n) return n.intValue();
-        return Integer.parseInt(o.toString());
-    }
-    
+	            // Optional: NULLS LAST only for date fields
+	            boolean applyNullsLast = column.equals("e.PROCESSING_START");
+
+	            if (applyNullsLast) {
+	                orderParts.add(column + " " + direction + " NULLS LAST");
+	            } else {
+	                orderParts.add(column + " " + direction);
+	            }
+	        }
+	    });
+
+	    if (orderParts.isEmpty()) {
+	        return "";
+	    }
+
+	    return " ORDER BY " + String.join(", ", orderParts);
+	}
+	private List<FundEventSummaryDto> mapRows(List<Object[]> rows) {
+
+	    Map<UUID, FundEventSummaryDto> map = new LinkedHashMap<>();
+
+	    rows.forEach(r -> {
+	        UUID eventId = (UUID) r[3];
+
+	        // Create event only if absent
+	        map.computeIfAbsent(eventId, id -> new FundEventSummaryDto(
+	                id,
+	                (String) r[1],             // fundCode
+	                (String) r[5],             // eventType
+	                (String) r[4],             // eventDisplayId
+	                (String) r[7],             // status
+	                toLocalDateTime(r[8]),     // startDate
+	                toLocalDateTime(r[9]),     // endDate
+	                toBigDecimal(r[10]),       // opbPerforming
+	                false,                     // isInitialTransfer
+	                0,                         // reportCount
+	                0,                         // outputFileCount
+	                "system",                  // createdBy
+	                null,                      // actions
+	                new ArrayList<>(),         // reports
+	                new ArrayList<>()          // output files
+	        ));
+
+	        // File mapping — if a file exists
+	        UUID fileId = (UUID) r[11];
+	        if (fileId != null) {
+	            FileEntryDto file = new FileEntryDto(
+	                    fileId,
+	                    (String) r[12],
+	                    (String) r[13],
+	                    (String) r[14],
+	                    (String) r[15],
+	                    toLong(r[16]),
+	                    toBoolean(r[17]),
+	                    r[18] != null ? r[18].toString() : null
+	            );
+
+	            String category = (String) r[14];
+
+	            if ("REPORT".equals(category)) {
+	                map.get(eventId).getReports().add(file);
+	            } else if ("OUTPUT_FILE".equals(category)) {
+	                map.get(eventId).getOutputFiles().add(file);
+	            }
+	        }
+	    });
+
+	    return new ArrayList<>(map.values());
+	}
+	private LocalDateTime toLocalDateTime(Object o) {
+		return (o instanceof Timestamp ts) ? ts.toLocalDateTime() : null;
+	}
+
+	private Long toLong(Object o) {
+		return (o instanceof Number n) ? n.longValue() : 0L;
+	}
+
+	private boolean toBoolean(Object o) {
+		if (o instanceof Boolean b)
+			return b;
+		if (o instanceof Number n)
+			return n.intValue() != 0;
+		if (o instanceof String s)
+			return "Y".equalsIgnoreCase(s) || "true".equalsIgnoreCase(s);
+		return false;
+	}
+
+//    private int toInt(Object o) {
+//        if (o == null) return 0;
+//        if (o instanceof BigInteger bi) return bi.intValue();
+//        if (o instanceof Number n) return n.intValue();
+//        return Integer.parseInt(o.toString());
+//    }
 
 	private BigDecimal toBigDecimal(Object o) {
 		if (o == null)

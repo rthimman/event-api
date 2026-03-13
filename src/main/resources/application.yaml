@@ -15,9 +15,14 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+
 storage:
   s3:
     enabled: false
+    properties:
+      hibernate:
+        format_sql: true
+
 #springdoc.api-docs.enabled=false'
 #  security:
 #    user:
@@ -33,4 +38,23 @@ app:
   security:
     roles-header-fallback: X-Role
     user-header-fallback: X-User
+  export:
+    dir: ./export            # where REFTIT files are created
+  partner:
+    outbox: ./partner_outbox # where files are delivered on SEND_TO_PARTNER
+  contracts:
+    release-mode: CANCEL     # CANCEL or DELE
+
+
+
+logging:
+  level:
+    org:
+      hibernate:
+        SQL: DEBUG
+        orm:
+          jdbc:
+            bind: TRACE
+
+
 

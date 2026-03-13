@@ -11,6 +11,13 @@ public enum ErrorCode {
 	INVALID_PAGE_SIZE(HttpStatus.BAD_REQUEST), 
 	UNAUTHORIZED(HttpStatus.UNAUTHORIZED), 
 	FORBIDDEN(HttpStatus.FORBIDDEN),
+	EVENT_NOT_FOUND(HttpStatus.NOT_FOUND),
+
+	INVALID_ACTION(HttpStatus.BAD_REQUEST),
+	ACTION_NOT_ALLOWED(HttpStatus.CONFLICT),
+	DAY_J_REQUIRED(HttpStatus.CONFLICT),
+	ALREADY_SENT_TO_PARTNER(HttpStatus.CONFLICT),
+
 	INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR);
 
 	public final HttpStatus httpStatus;
@@ -18,5 +25,7 @@ public enum ErrorCode {
 	ErrorCode(HttpStatus status) {
 		this.httpStatus = status;
 	}
+	
+	
 
 }

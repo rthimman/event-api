@@ -1,3 +1,4 @@
+
 package com.stellantis.event.entity;
 
 import java.time.LocalDateTime;

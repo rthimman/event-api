@@ -5,10 +5,13 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.stellantis.event.entity.FundEventEntity;
+
+import jakarta.persistence.LockModeType;
 
 public interface FundEventRepository extends JpaRepository<FundEventEntity, UUID>, FundEventRepositoryCustom  {
 
@@ -44,6 +47,29 @@ public interface FundEventRepository extends JpaRepository<FundEventEntity, UUID
         Optional<FundEventEntity> findByIdAndFundCode(
                 @Param("eventId") UUID eventId,
                 @Param("fundCode") String fundCode);
+
+
+        @Lock(LockModeType.PESSIMISTIC_WRITE)
+        @Query("""
+            select e from FundEventEntity e
+            join fetch e.fundEntity f
+            where e.id = :eventId and f.fundCode = :fundCode
+        """)
+        Optional<FundEventEntity> findForUpdate(@Param("fundCode") String fundCode,
+                                                @Param("eventId") UUID eventId);
+
+
+        @Query(value = """
+            SELECT fe.*
+            FROM   T_FUND_EVENT fe
+            JOIN   T_FUND f ON f.ID_FUND = fe.ID_FUND
+            WHERE  fe.ID_EVENT  = :eventId
+              AND  f.FUND_CODE  = :fundCode
+            """, nativeQuery = true)
+        Optional<FundEventEntity> findEntityByIdAndFundCode(@Param("eventId") UUID eventId,
+                                                      @Param("fundCode") String fundCode);
+
+
 
 
 }

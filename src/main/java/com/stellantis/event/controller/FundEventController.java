@@ -1,37 +1,50 @@
 package com.stellantis.event.controller;
 
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.UUID;
+
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-import com.stellantis.event.dto.FundEventDetailDto;
-import com.stellantis.event.dto.PageResponse;
-import com.stellantis.event.service.FundEventQueryService;
-import com.stellantis.event.service.FundEventService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.stellantis.event.dto.ActionType;
+import com.stellantis.event.dto.EventActionResultDto;
+import com.stellantis.event.dto.ExecuteActionRequestDto;
 import com.stellantis.event.dto.FileDownloadResponse;
+import com.stellantis.event.dto.FundEventDetailDto;
+import com.stellantis.event.dto.PageResponse;
+import com.stellantis.event.exception.ApiException;
+import com.stellantis.event.exception.ErrorCode;
+import com.stellantis.event.service.EventActionService;
 import com.stellantis.event.service.EventFileDownloadService;
+import com.stellantis.event.service.FundEventQueryService;
+import com.stellantis.event.service.FundEventService;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.servlet.http.HttpServletResponse;
-import io.swagger.v3.oas.annotations.media.Content;
-import java.io.IOException;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -42,6 +55,7 @@ public class FundEventController {
     private final FundEventService fundEventService;
     private final FundEventQueryService fundEventQueryService;
 	private final EventFileDownloadService downloadService;
+    private final EventActionService eventActionService;
 
 
     @Operation(
@@ -106,6 +120,57 @@ public class FundEventController {
 	            .getEventDetails(fundCode, UUID.fromString(eventId));
 	    return ResponseEntity.ok(dto);
 	}
+	
+
+    @Operation(
+            summary = "Execute lifecycle action on an event",
+            description = """
+                    Executes a single lifecycle action (VALIDATE, CONFIRM, CANCEL_VALIDATION, FREE_CONTRACTS, SEND_TO_PARTNER)
+                    on a fund event exactly as described in the E‑05 functional specification.  [1](https://capgemini-my.sharepoint.com/personal/rajesh_thimmani_capgemini_com/_layouts/15/Doc.aspx?sourcedoc=%7BAE3DD411-38B9-4810-B0E6-3E51ACD9E140%7D&file=E05_Execute_Event_Action_corrected.docx&action=default&mobileredirect=true)
+                    """,
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Action executed successfully"),
+                    @ApiResponse(responseCode = "400", description = "Invalid action or request body", content = @Content),
+                    @ApiResponse(responseCode = "404", description = "Fund or event not found", content = @Content),
+                    @ApiResponse(responseCode = "409", description = "Action not allowed for current status / day J required / idempotency violation", content = @Content),
+                    @ApiResponse(responseCode = "500", description = "Internal server error", content = @Content)
+            }
+    )
+    @PostMapping(
+            value = "/funds/{fundCode}/events/{eventId}/actions",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public EventActionResultDto executeAction(
+            @PathVariable String fundCode,
+            @PathVariable UUID eventId,
+            @Valid @RequestBody ExecuteActionRequestDto request,
+            @RequestHeader(value = "X-User", required = false) String currentUser
+    ) {
+
+        log.info("POST /api/v1/funds/{}/events/{}/actions incoming request: {}",
+                fundCode, eventId, request.getAction());
+
+        ActionType action = ActionType.from(request.getAction());
+        if (action == null) {
+            throw new ApiException(ErrorCode.INVALID_ACTION,
+                    "Invalid action: " + request.getAction());  
+        }
+
+       
+        String user = (currentUser != null && !currentUser.isBlank())
+                ? currentUser
+                : "system";
+
+        
+        return eventActionService.executeAction(
+                fundCode,
+                eventId,
+                action,
+                user
+        );
+    }
+
 
 	@Operation(summary = "Download a single output file (binary stream)")
 	@ApiResponses({ @ApiResponse(responseCode = "200", description = "Binary file content", content = {

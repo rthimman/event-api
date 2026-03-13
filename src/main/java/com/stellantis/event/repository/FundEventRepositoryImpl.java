@@ -209,7 +209,7 @@ public class FundEventRepositoryImpl implements FundEventRepositoryCustom {
 	                0,                         // reportCount
 	                0,                         // outputFileCount
 	                "system",                  // createdBy
-	                null,                      // actions
+	                ActionResolver.resolve((String) r[7], toLocalDateTime(r[8]).toLocalDate()),                      // actions
 	                new ArrayList<>(),         // reports
 	                new ArrayList<>()          // output files
 	        ));

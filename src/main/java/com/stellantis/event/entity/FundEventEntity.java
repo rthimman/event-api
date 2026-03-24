@@ -125,6 +125,7 @@ public class FundEventEntity {
         FINISHED,
         VALIDATED,
         CONFIRMED,
-        CANCELLED
+        CANCELLED,
+        ABANDONNED
     }
 }

@@ -2,6 +2,7 @@ package com.stellantis.event.service;
 
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -73,6 +74,7 @@ public class EventActionService {
 //                }
                 newStatus = EventStatus.VALIDATED.name();
                 event.setStatus(FundEventEntity.EventStatus.VALIDATED); 
+                event.setConfirmedAt(LocalDateTime.now());
             }
 
             case CONFIRM -> {
@@ -82,33 +84,36 @@ public class EventActionService {
                 exportService.generateReftit(event);          
                 newStatus = EventStatus.CONFIRMED.name();
                 event.setStatus(FundEventEntity.EventStatus.CONFIRMED);
+                event.setConfirmedAt(LocalDateTime.now());
             }
 
             case CANCEL_VALIDATION -> {
                 // CANCEL_VALIDATION allowed only on VALIDATED → FINISHED  
                 ensureStatus(previousStatus, EventStatus.VALIDATED.name(), action);  
-                newStatus = EventStatus.FINISHED.name();
-                event.setStatus(FundEventEntity.EventStatus.FINISHED); 
+                newStatus = EventStatus.ABANDONNED.name();
+                event.setStatus(FundEventEntity.EventStatus.ABANDONNED); 
+                event.setConfirmedAt(LocalDateTime.now());
             }
 
             case FREE_CONTRACTS -> {
                 // FREE_CONTRACTS allowed only on FINISHED → CANCELLED; must release locked contracts  
                 ensureStatus(previousStatus, EventStatus.FINISHED.name(), action);  
                 contractService.releaseContractsForEvent(event.getId());            
-                newStatus = EventStatus.CANCELLED.name();
-                event.setStatus(FundEventEntity.EventStatus.CANCELLED);
+                newStatus = EventStatus.ABANDONNED.name();
+                event.setStatus(FundEventEntity.EventStatus.ABANDONNED);
+                event.setConfirmedAt(LocalDateTime.now());
             }
 
             case SEND_TO_PARTNER -> {
                 // SEND_TO_PARTNER allowed only on CONFIRMED; one-time only (idempotent)  
-                ensureStatus(previousStatus, EventStatus.CONFIRMED.name(), action); 
+                ensureStatus(previousStatus, EventStatus.VALIDATED.name(), action); 
                 if (event.getSentToPartnerAt() != null) {
                     throw new ApiException(ErrorCode.ALREADY_SENT_TO_PARTNER, "Event already sent to partner");  
                 }
                 message = partnerService.sendToPartner(event);                      
                 //event.setSentToPartnerAt(OffsetDateTime.now());                     
-                newStatus = EventStatus.CONFIRMED.name();  
-                event.setStatus(FundEventEntity.EventStatus.CONFIRMED);
+                //newStatus = EventStatus.CONFIRMED.name();  
+                //event.setStatus(FundEventEntity.EventStatus.CONFIRMED);
             }
 
             default -> throw new ApiException(ErrorCode.INVALID_ACTION, "Unsupported action: " + action); 

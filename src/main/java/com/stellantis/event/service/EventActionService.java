@@ -51,10 +51,10 @@ public class EventActionService {
 
         // Fund existence and event fetch (with PESSIMISTIC_WRITE lock in repository)
         FundEntity fund = fundRepository.findByFundCode(fundCode)
-                .orElseThrow(() -> new ApiException(ErrorCode.FUND_NOT_FOUND, "Fund not found: " + fundCode));  // [1](https://capgemini-my.sharepoint.com/personal/rajesh_thimmani_capgemini_com/_layouts/15/Doc.aspx?sourcedoc=%7BAE3DD411-38B9-4810-B0E6-3E51ACD9E140%7D&file=E05_Execute_Event_Action_corrected.docx&action=default&mobileredirect=true)
+                .orElseThrow(() -> new ApiException(ErrorCode.FUND_NOT_FOUND, "Fund not found: " + fundCode));  
 
         FundEventEntity event = eventRepository.findForUpdate(fundCode, eventId)
-                .orElseThrow(() -> new ApiException(ErrorCode.EVENT_NOT_FOUND, "Event not found: " + eventId));  // [1](https://capgemini-my.sharepoint.com/personal/rajesh_thimmani_capgemini_com/_layouts/15/Doc.aspx?sourcedoc=%7BAE3DD411-38B9-4810-B0E6-3E51ACD9E140%7D&file=E05_Execute_Event_Action_corrected.docx&action=default&mobileredirect=true)
+                .orElseThrow(() -> new ApiException(ErrorCode.EVENT_NOT_FOUND, "Event not found: " + eventId));  
 
         String previousStatus = event.getStatus().name();
         String newStatus = previousStatus;
@@ -68,11 +68,11 @@ public class EventActionService {
             case VALIDATE -> {
                 // VALIDATE requires FINISHED and must be executed on day J (PROCESSING_START date == today)  
                 ensureStatus(previousStatus, EventStatus.FINISHED.name(), action);  
-                if (!isDayJ(event)) {
-                    throw new ApiException(ErrorCode.DAY_J_REQUIRED, "VALIDATE only allowed on event day");  // [1](https://capgemini-my.sharepoint.com/personal/rajesh_thimmani_capgemini_com/_layouts/15/Doc.aspx?sourcedoc=%7BAE3DD411-38B9-4810-B0E6-3E51ACD9E140%7D&file=E05_Execute_Event_Action_corrected.docx&action=default&mobileredirect=true)
-                }
+//                if (!isDayJ(event)) {
+//                    throw new ApiException(ErrorCode.DAY_J_REQUIRED, "VALIDATE only allowed on event day");  
+//                }
                 newStatus = EventStatus.VALIDATED.name();
-               // event.setStatus(newStatus); -- TODO: need to map proper data
+                event.setStatus(FundEventEntity.EventStatus.VALIDATED); 
             }
 
             case CONFIRM -> {
@@ -81,14 +81,14 @@ public class EventActionService {
                 accountingService.generateAccounting(event);   
                 exportService.generateReftit(event);          
                 newStatus = EventStatus.CONFIRMED.name();
-                //event.setStatus(newStatus); -- TODO: need to map proper data
+                event.setStatus(FundEventEntity.EventStatus.CONFIRMED);
             }
 
             case CANCEL_VALIDATION -> {
                 // CANCEL_VALIDATION allowed only on VALIDATED → FINISHED  
                 ensureStatus(previousStatus, EventStatus.VALIDATED.name(), action);  
                 newStatus = EventStatus.FINISHED.name();
-               // event.setStatus(newStatus); -- TODO: need to map proper data
+                event.setStatus(FundEventEntity.EventStatus.FINISHED); 
             }
 
             case FREE_CONTRACTS -> {
@@ -96,7 +96,7 @@ public class EventActionService {
                 ensureStatus(previousStatus, EventStatus.FINISHED.name(), action);  
                 contractService.releaseContractsForEvent(event.getId());            
                 newStatus = EventStatus.CANCELLED.name();
-                //event.setStatus(newStatus);-- TODO: need to map proper data
+                event.setStatus(FundEventEntity.EventStatus.CANCELLED);
             }
 
             case SEND_TO_PARTNER -> {
@@ -107,7 +107,8 @@ public class EventActionService {
                 }
                 message = partnerService.sendToPartner(event);                      
                 //event.setSentToPartnerAt(OffsetDateTime.now());                     
-                newStatus = EventStatus.CONFIRMED.name();                           
+                newStatus = EventStatus.CONFIRMED.name();  
+                event.setStatus(FundEventEntity.EventStatus.CONFIRMED);
             }
 
             default -> throw new ApiException(ErrorCode.INVALID_ACTION, "Unsupported action: " + action); 
